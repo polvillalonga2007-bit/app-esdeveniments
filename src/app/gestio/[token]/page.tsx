@@ -45,7 +45,9 @@ function Manage() {
       </main>
     );
 
-  const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/e/${ev.slug}` : `/e/${ev.slug}`;
+  // L'enllaç sempre apunta al domini públic, encara que l'organitzador hagi entrat per un altre
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "");
+  const inviteUrl = `${origin}/e/${ev.slug}`;
   const shareText = `${ev.organizer_name} et convida a: ${ev.title} (${formatWhen(ev.starts_at)}). Digues si hi vens aquí: ${inviteUrl}`;
 
   async function sendNotice(e: React.FormEvent) {
