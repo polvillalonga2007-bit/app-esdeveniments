@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { money } from "@/lib/format";
+import { price as money } from "@/lib/format";
 
 type Point = { t: number; p: number };
 

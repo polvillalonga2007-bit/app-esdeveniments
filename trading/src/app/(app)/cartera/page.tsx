@@ -26,7 +26,7 @@ export default function Cartera() {
         <span className="text-sm text-muted">Hola, {state.user.nickname}</span>
       </header>
 
-      <Card className="flex flex-col gap-1 bg-brand text-white border-brand">
+      <div className="flex flex-col gap-1 rounded-2xl bg-brand p-4 text-white">
         <span className="text-sm text-white/75">Valor total de la cartera</span>
         <span className="text-[34px] font-bold leading-tight tracking-tight">{money(totals.total)}</span>
         <span className="text-[15px] font-semibold">
@@ -39,7 +39,7 @@ export default function Cartera() {
           <span>Invertit: {money(totals.positionsValue)}</span>
           <span>Disponible: {money(state.user.cash)}</span>
         </div>
-      </Card>
+      </div>
 
       {quotesError && <p className="rounded-xl bg-down-soft px-3.5 py-3 text-sm text-down">Ara mateix no arriben els preus. Els valors poden no estar al dia.</p>}
 

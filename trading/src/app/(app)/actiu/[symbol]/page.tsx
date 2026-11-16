@@ -6,7 +6,7 @@ import { BackLink, Card, Disclaimer, ErrorBox, Field, SectionTitle, inputClass }
 import { PriceChart } from "@/components/price-chart";
 import { useApp } from "@/lib/app-context";
 import { HOURS_LABEL, findAsset, shortTicker } from "@/lib/assets";
-import { dateTime, money, pct, qty, signedMoney, tone } from "@/lib/format";
+import { dateTime, money, pct, price, qty, signedMoney, tone } from "@/lib/format";
 import { applyTrade, errorText, TradeError } from "@/lib/store";
 import type { Quote } from "@/lib/market";
 
@@ -113,7 +113,7 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
 
       <Card className="flex flex-col gap-3">
         <div>
-          <div className="text-[32px] font-bold leading-tight tracking-tight">{q ? money(q.price) : "–"}</div>
+          <div className="text-[32px] font-bold leading-tight tracking-tight">{q ? price(q.price) : "–"}</div>
           <div className={`text-[15px] font-semibold ${tone(range === "1d" ? q?.changePct : chartChange)}`}>
             {pct(range === "1d" ? q?.changePct : chartChange)} <span className="font-normal text-muted">{RANGES.find((r) => r[0] === range)?.[1].toLowerCase()}</span>
           </div>
@@ -193,7 +193,7 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
           </div>
           {q && amountNum > 0 && (
             <p className="text-sm text-muted">
-              Seran aproximadament {qty(Math.min(amountNum, max) / q.price)} {shortTicker(symbol)} a {money(q.price)} cadascun.
+              Seran aproximadament {qty(Math.min(amountNum, max) / q.price)} {shortTicker(symbol)} a {price(q.price)} cadascun.
             </p>
           )}
           <Field label="Per què ho fas? (opcional)" hint="Apuntar-ho t'ajuda a aprendre dels teus encerts i errors.">

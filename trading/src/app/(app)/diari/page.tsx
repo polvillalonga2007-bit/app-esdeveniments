@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Card, Disclaimer, SectionTitle } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
-import { dateTime, money, pct, qty, signedMoney, tone } from "@/lib/format";
+import { dateTime, money, pct, price, qty, signedMoney, tone } from "@/lib/format";
 import { shortTicker } from "@/lib/assets";
 
 export default function Diari() {
@@ -63,7 +63,7 @@ export default function Diari() {
                       {t.asset_name}
                     </div>
                     <div className="text-sm text-muted">
-                      {qty(t.qty)} {shortTicker(t.symbol)} a {money(t.price)} · {dateTime(t.created_at)}
+                      {qty(t.qty)} {shortTicker(t.symbol)} a {price(t.price)} · {dateTime(t.created_at)}
                     </div>
                   </div>
                   <div className="text-right">

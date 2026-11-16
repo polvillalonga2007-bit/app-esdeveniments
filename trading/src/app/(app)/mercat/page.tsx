@@ -5,7 +5,7 @@ import { Card, Disclaimer, Loading, SectionTitle } from "@/components/ui";
 import { Sparkline } from "@/components/sparkline";
 import { useApp } from "@/lib/app-context";
 import { ASSETS, AssetType, TYPE_LABEL, shortTicker } from "@/lib/assets";
-import { money, pct, tone } from "@/lib/format";
+import { pct, price, tone } from "@/lib/format";
 
 const ORDER: AssetType[] = ["cripto", "eua", "espanya", "fons"];
 
@@ -40,7 +40,7 @@ export default function Mercat() {
                     </div>
                     <Sparkline values={q?.spark ?? []} />
                     <div className="w-24 text-right">
-                      <div className="font-semibold">{q ? money(q.price) : "–"}</div>
+                      <div className="font-semibold">{q ? price(q.price) : "–"}</div>
                       <div className={`text-sm font-medium ${tone(q?.changePct)}`}>{pct(q?.changePct)}</div>
                     </div>
                   </Link>
