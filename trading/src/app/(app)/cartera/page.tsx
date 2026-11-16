@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Card, Disclaimer, Logo, SectionTitle, secondaryButton } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
 import { CurrencyToggle } from "@/components/currency-toggle";
+import { OpenOps } from "@/components/open-ops";
 import { money, pct, qty, signedMoney, tone } from "@/lib/format";
 import { shortTicker } from "@/lib/assets";
 import { resetState, START_CASH } from "@/lib/store";
@@ -47,13 +48,17 @@ export default function Cartera() {
 
       {quotesError && <p className="rounded-xl bg-down-soft px-3.5 py-3 text-sm text-down">Ara mateix no arriben els preus. Els valors poden no estar al dia.</p>}
 
+      <OpenOps />
+
       <section className="flex flex-col gap-2">
         <SectionTitle>El que tens</SectionTitle>
-        {state.positions.length === 0 ? (
+        {state.positions.length === 0 && !(state.ops ?? []).length ? (
           <Card className="flex flex-col gap-3 text-center">
             <p className="text-[15px] text-muted">Encara no has comprat res. Fes un cop d&apos;ull al mercat i tria la teva primera inversió.</p>
             <Link href="/mercat" className="font-semibold text-brand">Anar al mercat →</Link>
           </Card>
+        ) : state.positions.length === 0 ? (
+          <p className="px-1 text-sm text-muted">Cap inversió a llarg termini.</p>
         ) : (
           <Card className="divide-y divide-line p-0">
             {state.positions.map((p) => {

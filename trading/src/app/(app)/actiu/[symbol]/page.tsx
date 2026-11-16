@@ -12,7 +12,9 @@ import { SrLayer } from "@/components/sr-layer";
 import { useApp } from "@/lib/app-context";
 import { HOURS_LABEL, findAsset, shortTicker } from "@/lib/assets";
 import { currencySymbol, dateTime, fromDisp, money, moneyRaw, nativeMoney, pct, price, qty, signedMoney, toDisp, tone } from "@/lib/format";
-import { applyTrade, errorText, TradeError } from "@/lib/store";
+import { applyTrade, errorText, TradeError, tradeLabel } from "@/lib/store";
+import { Plan, QuickTrade } from "@/components/quick-trade";
+import { OpenOps } from "@/components/open-ops";
 import type { Quote } from "@/lib/market";
 
 const TIMEFRAMES = [
@@ -143,6 +145,33 @@ function ActiuView({ symbol }: { symbol: string }) {
     () => (candles && rate !== 1 ? candles.map((c) => ({ ...c, o: c.o * rate, h: c.h * rate, l: c.l * rate, c: c.c * rate })) : candles),
     [candles, rate],
   );
+
+  const plan: Plan | null = useMemo(() => {
+    const d = drawings.find((x) => x.id === selected);
+    return d && (d.kind === "long" || d.kind === "short") ? { dir: d.kind === "long" ? "llarg" : "curt", sl: d.stop, tp: d.target } : null;
+  }, [drawings, selected]);
+
+  // Línies al gràfic per a les operacions obertes d'aquest actiu (entrada, stop i objectiu)
+  const myOps = useMemo(() => (state.ops ?? []).filter((o) => o.symbol === symbol), [state.ops, symbol]);
+  useEffect(() => {
+    if (!api) return;
+    const lines = myOps.flatMap((o) => {
+      const long = o.dir === "llarg";
+      const out = [
+        api.series.createPriceLine({ price: o.entry * rate, color: long ? "#16a34a" : "#dc2626", lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: long ? "Compra" : "Venda" }),
+      ];
+      if (o.sl != null) out.push(api.series.createPriceLine({ price: o.sl * rate, color: "#dc2626", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "Stop" }));
+      if (o.tp != null) out.push(api.series.createPriceLine({ price: o.tp * rate, color: "#16a34a", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "Objectiu" }));
+      return out;
+    });
+    return () => {
+      for (const l of lines) {
+        try {
+          api.series.removePriceLine(l);
+        } catch {}
+      }
+    };
+  }, [api, myOps, rate]);
 
   const activeSet = useMemo(() => new Set(prefs?.ind ?? []), [prefs?.ind]);
 
@@ -277,6 +306,7 @@ function ActiuView({ symbol }: { symbol: string }) {
             setSelected(null);
           }}
         />
+        <QuickTrade symbol={symbol} name={asset.name} plan={plan} />
         <div className="relative -mx-1">
           {candles && prefs ? (
             candles.length > 1 ? (
@@ -346,6 +376,8 @@ function ActiuView({ symbol }: { symbol: string }) {
         </p>
       </Card>
 
+      <OpenOps symbol={symbol} title={`Operacions obertes de ${shortTicker(symbol)}`} />
+
       {pos && (
         <Card className="grid grid-cols-2 gap-3">
           <div>
@@ -367,7 +399,8 @@ function ActiuView({ symbol }: { symbol: string }) {
         </Card>
       )}
 
-      <Card>
+      <SectionTitle>Comprar i guardar (inversió)</SectionTitle>
+      <Card className="-mt-3">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 rounded-xl bg-ground p-1 font-semibold">
             {(["compra", "venda"] as const).map((s) => (
@@ -443,7 +476,7 @@ function ActiuView({ symbol }: { symbol: string }) {
             {myTrades.map((t) => (
               <div key={t.id} className="flex justify-between gap-3 px-4 py-3 text-sm">
                 <div>
-                  <div className="font-semibold">{t.side === "compra" ? "Compra" : "Venda"} · {money(t.total)}</div>
+                  <div className="font-semibold">{tradeLabel(t)} · {money(t.total)}</div>
                   <div className="text-muted">{dateTime(t.created_at)}</div>
                 </div>
                 {t.realized != null && <div className={`font-semibold ${tone(t.realized)}`}>{signedMoney(t.realized)}</div>}

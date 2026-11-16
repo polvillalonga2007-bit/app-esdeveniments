@@ -5,11 +5,12 @@ import { Card, Disclaimer, SectionTitle } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
 import { dateTime, money, pct, price, qty, signedMoney, tone } from "@/lib/format";
 import { shortTicker } from "@/lib/assets";
+import { tradeLabel } from "@/lib/store";
 
 export default function Diari() {
   const { state, totals } = useApp();
   const trades = state.trades;
-  const sells = trades.filter((t) => t.side === "venda" && t.realized != null);
+  const sells = trades.filter((t) => t.realized != null); // vendes i tancaments d'operacions
   const wins = sells.filter((t) => (t.realized ?? 0) > 0);
   const realized = sells.reduce((a, t) => a + (t.realized ?? 0), 0);
   const best = sells.reduce<(typeof sells)[number] | null>((b, t) => (!b || (t.realized ?? 0) > (b.realized ?? 0) ? t : b), null);
@@ -19,11 +20,11 @@ export default function Diari() {
 
   const stats: [string, string, string?][] = [
     ["Resultat total", `${signedMoney(totals.pnl)} (${pct(totals.pnlPct)})`, tone(totals.pnl)],
-    ["Guanyat en vendes", signedMoney(realized), tone(realized)],
+    ["Guanyat en operacions tancades", signedMoney(realized), tone(realized)],
     ["Pendent (el que tens ara)", signedMoney(unrealized), tone(unrealized)],
-    ["Vendes amb guany", sells.length ? `${wins.length} de ${sells.length} (${Math.round((wins.length / sells.length) * 100)} %)` : "–"],
-    ["Millor venda", best && (best.realized ?? 0) > 0 ? `${signedMoney(best.realized ?? 0)} · ${shortTicker(best.symbol)}` : "–", "text-up"],
-    ["Pitjor venda", worst && (worst.realized ?? 0) < 0 ? `${signedMoney(worst.realized ?? 0)} · ${shortTicker(worst.symbol)}` : "–", "text-down"],
+    ["Operacions amb guany", sells.length ? `${wins.length} de ${sells.length} (${Math.round((wins.length / sells.length) * 100)} %)` : "–"],
+    ["Millor operació", best && (best.realized ?? 0) > 0 ? `${signedMoney(best.realized ?? 0)} · ${shortTicker(best.symbol)}` : "–", "text-up"],
+    ["Pitjor operació", worst && (worst.realized ?? 0) < 0 ? `${signedMoney(worst.realized ?? 0)} · ${shortTicker(worst.symbol)}` : "–", "text-down"],
     ["Operacions", String(trades.length)],
     ["Dies jugant", String(days)],
   ];
@@ -58,7 +59,7 @@ export default function Diari() {
                   <div className="min-w-0">
                     <div className="truncate font-semibold">
                       <span className={`mr-1.5 rounded px-1.5 py-0.5 text-[11px] font-bold uppercase ${t.side === "compra" ? "bg-up-soft text-up" : "bg-down-soft text-down"}`}>
-                        {t.side}
+                        {tradeLabel(t)}
                       </span>
                       {t.asset_name}
                     </div>
