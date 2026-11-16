@@ -7,6 +7,7 @@ import { Candle, CandleChart, ChartApi, INDICATORS, IndicatorKey } from "@/compo
 import { Drawing, DrawingLayer, loadDrawings, saveDrawings, Tool } from "@/components/drawing-layer";
 import { DrawToolbar } from "@/components/draw-toolbar";
 import { NewsList } from "@/components/news-list";
+import { ChartTabs } from "@/components/chart-tabs";
 import { useApp } from "@/lib/app-context";
 import { HOURS_LABEL, findAsset, shortTicker } from "@/lib/assets";
 import { dateTime, money, pct, price, qty, signedMoney, tone } from "@/lib/format";
@@ -36,6 +37,11 @@ function loadPrefs(): Prefs {
 export default function Actiu({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol: raw } = use(params);
   const symbol = decodeURIComponent(raw);
+  // key: cada pestanya comença amb l'estat net (formulari, gràfic, dibuixos)
+  return <ActiuView key={symbol} symbol={symbol} />;
+}
+
+function ActiuView({ symbol }: { symbol: string }) {
   const asset = findAsset(symbol);
   const { state, setState, quote } = useApp();
   const q = quote(symbol);
@@ -189,6 +195,7 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-3">
+      <ChartTabs current={symbol} />
       <header className="flex items-center gap-1">
         <BackLink href="/mercat" />
         <div className="min-w-0">
