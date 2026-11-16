@@ -105,6 +105,25 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
     },
     [symbol],
   );
+  const deleteSelected = useCallback(() => {
+    if (!selected) return;
+    setDrawings(drawingsRef.current.filter((d) => d.id !== selected));
+    setSelected(null);
+  }, [selected, setDrawings]);
+  // Tecla Supr o Retrocés esborra el dibuix seleccionat (si no s'està escrivint en un camp)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("input, textarea")) return;
+      if ((e.key === "Delete" || e.key === "Backspace") && selected) {
+        e.preventDefault();
+        deleteSelected();
+      }
+      if (e.key === "Escape") setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected, deleteSelected]);
   // Un toc al gràfic (sense eina) treu la selecció
   useEffect(() => {
     if (!api) return;
@@ -220,9 +239,9 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
           }}
           hasSelection={!!selected}
           hasDrawings={drawings.length > 0}
-          onDelete={() => {
-            if (selected) setDrawings(drawings.filter((d) => d.id !== selected));
-            else setDrawings([]);
+          onDeleteSelected={deleteSelected}
+          onClearAll={() => {
+            setDrawings([]);
             setSelected(null);
           }}
         />

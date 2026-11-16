@@ -189,12 +189,14 @@ export function DrawingLayer({
     } else if (o.kind === "brush") nd = { ...o, pts: o.pts.map(mv) };
     else {
       const sign = o.kind === "long" ? 1 : -1;
+      // l'objectiu i l'stop no poden creuar l'entrada: deixem com a mínim 10 píxels de marge
+      const gap = Math.abs(yp(py(o.entry) + 10) - o.entry);
       if (g.part === "target") {
         const v = yp(y);
-        nd = { ...o, target: sign * (v - o.entry) > 0 ? v : o.entry + sign * 1e-9 };
+        nd = { ...o, target: sign * (v - o.entry) >= gap ? v : o.entry + sign * gap };
       } else if (g.part === "stop") {
         const v = yp(y);
-        nd = { ...o, stop: sign * (o.entry - v) > 0 ? v : o.entry - sign * 1e-9 };
+        nd = { ...o, stop: sign * (o.entry - v) >= gap ? v : o.entry - sign * gap };
       } else if (g.part === "right") nd = { ...o, t2: Math.max(o.t1 + step, xt(x)) };
       else nd = { ...o, t1: o.t1 + dt, t2: o.t2 + dt, entry: o.entry + dp, target: o.target + dp, stop: o.stop + dp };
     }
@@ -312,8 +314,8 @@ export function DrawingLayer({
                   {label(mid, yt + (isLong ? -14 : 14), `Objectiu: ${fmtPrice(d.target)} (${pctTxt(d.entry, d.target)})`, UP)}
                   {label(mid, ys + (isLong ? 14 : -14), `Stop: ${fmtPrice(d.stop)} (${pctTxt(d.entry, d.stop)})`, DOWN)}
                   {label(mid, ye + (isLong ? 14 : -14), `${isLong ? "Llarga" : "Curta"} a ${fmtPrice(d.entry)} · ràtio ${rr.toLocaleString("ca-ES", { maximumFractionDigits: 2 })}`, "#334155")}
-                  {handle(d, "target", x1, yt)}
-                  {handle(d, "stop", x1, ys)}
+                  {handle(d, "target", x1 + Math.min(w * 0.25, 40), yt)}
+                  {handle(d, "stop", x1 + Math.min(w * 0.25, 40), ys)}
                   {handle(d, "move", x1, ye, "move")}
                   {handle(d, "right", x1 + w, ye, "ew-resize")}
                 </>
