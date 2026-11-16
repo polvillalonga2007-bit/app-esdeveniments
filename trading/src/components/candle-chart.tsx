@@ -16,12 +16,13 @@ import { bollinger, ema, macd, rsi, sma, stochastic } from "@/lib/indicators";
 
 export type ChartApi = { chart: IChartApi; series: ISeriesApi<SeriesType>; container: HTMLDivElement };
 export type Candle = { t: number; o: number; h: number; l: number; c: number; v: number };
-export type IndicatorKey = "mm20" | "mm50" | "mm200" | "ema20" | "ema45" | "boll" | "stoch" | "vol" | "rsi" | "macd";
+export type IndicatorKey = "mm20" | "mm50" | "mm200" | "ema20" | "ema45" | "boll" | "stoch" | "sr" | "vol" | "rsi" | "macd";
 
 const UP = "#16a34a";
 const DOWN = "#dc2626";
 
 export const INDICATORS: { key: IndicatorKey; label: string; color: string; help: string }[] = [
+  { key: "sr", label: "Suports i resist.", color: "#16a34a", help: "Zones de suport (verd) i resistència (vermell) calculades automàticament: llocs on el preu ha girat diverses vegades. Com més tocs, més forta. És una aproximació: cada temporalitat en mostra de diferents i no garanteix que el preu hi reboti." },
   { key: "vol", label: "Volum", color: "#94a3b8", help: "Quantes accions o monedes s'han comprat i venut a cada espelma. Molt volum vol dir que el moviment té força." },
   { key: "mm20", label: "MM 20", color: "#f59e0b", help: "Mitjana mòbil de 20 espelmes: el preu mitjà recent. Si el preu està per sobre, la tendència curta és alcista." },
   { key: "mm50", label: "MM 50", color: "#3b82f6", help: "Mitjana mòbil de 50 espelmes: tendència mitjana." },

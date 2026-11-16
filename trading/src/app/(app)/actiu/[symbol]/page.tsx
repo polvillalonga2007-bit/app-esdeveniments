@@ -8,6 +8,7 @@ import { Drawing, DrawingLayer, loadDrawings, saveDrawings, Tool } from "@/compo
 import { DrawToolbar } from "@/components/draw-toolbar";
 import { NewsList } from "@/components/news-list";
 import { ChartTabs } from "@/components/chart-tabs";
+import { SrLayer } from "@/components/sr-layer";
 import { useApp } from "@/lib/app-context";
 import { HOURS_LABEL, findAsset, shortTicker } from "@/lib/assets";
 import { dateTime, money, pct, price, qty, signedMoney, tone } from "@/lib/format";
@@ -264,6 +265,7 @@ function ActiuView({ symbol }: { symbol: string }) {
                   onReady={onReady}
                   viewKey={`${symbol}|${prefs.tf}`}
                 />
+                {activeSet.has("sr") && <SrLayer api={api} candles={candles} />}
                 <DrawingLayer
                   api={api}
                   candles={candles}
