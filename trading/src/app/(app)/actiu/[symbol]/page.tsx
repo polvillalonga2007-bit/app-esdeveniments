@@ -1,9 +1,12 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BackLink, Card, Disclaimer, ErrorBox, Field, SectionTitle, inputClass } from "@/components/ui";
-import { Candle, CandleChart, INDICATORS, IndicatorKey } from "@/components/candle-chart";
+import { Candle, CandleChart, ChartApi, INDICATORS, IndicatorKey } from "@/components/candle-chart";
+import { Drawing, DrawingLayer, loadDrawings, saveDrawings, Tool } from "@/components/drawing-layer";
+import { DrawToolbar } from "@/components/draw-toolbar";
+import { NewsList } from "@/components/news-list";
 import { useApp } from "@/lib/app-context";
 import { HOURS_LABEL, findAsset, shortTicker } from "@/lib/assets";
 import { dateTime, money, pct, price, qty, signedMoney, tone } from "@/lib/format";
@@ -80,6 +83,35 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
       clearInterval(id);
     };
   }, [symbol, tf]);
+
+  const [api, setApi] = useState<ChartApi | null>(null);
+  const onReady = useCallback((a: ChartApi | null) => setApi(a), []);
+  const [tool, setTool] = useState<Tool>("cursor");
+  const [drawings, setDrawingsRaw] = useState<Drawing[]>([]);
+  const [history, setHistory] = useState<Drawing[][]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  useEffect(() => setDrawingsRaw(loadDrawings(symbol)), [symbol]);
+  const drawingsRef = useRef<Drawing[]>([]);
+  useEffect(() => {
+    drawingsRef.current = drawings;
+  }, [drawings]);
+  // record = guardar l'estat anterior per poder desfer (durant un arrossegament només es guarda a l'inici)
+  const setDrawings = useCallback(
+    (d: Drawing[], record = true) => {
+      if (record) setHistory((h) => [...h.slice(-30), drawingsRef.current]);
+      drawingsRef.current = d;
+      setDrawingsRaw(d);
+      saveDrawings(symbol, d);
+    },
+    [symbol],
+  );
+  // Un toc al gràfic (sense eina) treu la selecció
+  useEffect(() => {
+    if (!api) return;
+    const h = () => setSelected(null);
+    api.chart.subscribeClick(h);
+    return () => api.chart.unsubscribeClick(h);
+  }, [api]);
 
   const activeSet = useMemo(() => new Set(prefs?.ind ?? []), [prefs?.ind]);
 
@@ -175,10 +207,48 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
             )}
           </button>
         </div>
-        <div className="-mx-1">
+        <DrawToolbar
+          tool={tool}
+          setTool={(t) => { setTool(t); setSelected(null); }}
+          canUndo={history.length > 0}
+          onUndo={() => {
+            const prev = history[history.length - 1];
+            if (!prev) return;
+            setHistory((h) => h.slice(0, -1));
+            setDrawingsRaw(prev);
+            saveDrawings(symbol, prev);
+          }}
+          hasSelection={!!selected}
+          hasDrawings={drawings.length > 0}
+          onDelete={() => {
+            if (selected) setDrawings(drawings.filter((d) => d.id !== selected));
+            else setDrawings([]);
+            setSelected(null);
+          }}
+        />
+        <div className="relative -mx-1">
           {candles && prefs ? (
             candles.length > 1 ? (
-              <CandleChart candles={candles} active={activeSet} mode={prefs.mode} intraday={!["1d", "1wk"].includes(prefs.tf)} />
+              <>
+                <CandleChart
+                  candles={candles}
+                  active={activeSet}
+                  mode={prefs.mode}
+                  intraday={!["1d", "1wk"].includes(prefs.tf)}
+                  onReady={onReady}
+                  viewKey={`${symbol}|${prefs.tf}`}
+                />
+                <DrawingLayer
+                  api={api}
+                  candles={candles}
+                  tool={tool}
+                  setTool={setTool}
+                  drawings={drawings}
+                  setDrawings={setDrawings}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+              </>
             ) : (
               <div className="flex h-[320px] items-center justify-center text-sm text-muted">Encara no hi ha dades per a aquesta temporalitat</div>
             )
@@ -306,6 +376,12 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
           </button>
         </form>
       </Card>
+
+      <section className="flex flex-col gap-2">
+        <SectionTitle>Notícies de {asset.name}</SectionTitle>
+        <NewsList symbol={symbol} limit={6} />
+        <Link href="/noticies" className="text-center text-sm font-semibold text-brand">Més notícies →</Link>
+      </section>
 
       {myTrades.length > 0 && (
         <section className="flex flex-col gap-2">

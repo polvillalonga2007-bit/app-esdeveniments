@@ -8,10 +8,13 @@ import {
   HistogramSeries,
   LineSeries,
   type IChartApi,
+  type ISeriesApi,
+  type SeriesType,
   type UTCTimestamp,
 } from "lightweight-charts";
 import { bollinger, ema, macd, rsi, sma, stochastic } from "@/lib/indicators";
 
+export type ChartApi = { chart: IChartApi; series: ISeriesApi<SeriesType>; container: HTMLDivElement };
 export type Candle = { t: number; o: number; h: number; l: number; c: number; v: number };
 export type IndicatorKey = "mm20" | "mm50" | "mm200" | "ema20" | "ema45" | "boll" | "stoch" | "vol" | "rsi" | "macd";
 
@@ -45,13 +48,18 @@ export function CandleChart({
   active,
   mode,
   intraday,
+  onReady,
+  viewKey,
 }: {
   candles: Candle[];
   active: Set<IndicatorKey>;
   mode: "espelmes" | "linia";
   intraday: boolean;
+  onReady?: (api: ChartApi | null) => void;
+  viewKey?: string; // si no canvia (mateix actiu i temporalitat), conservem el zoom en refrescar les dades
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const saved = useRef<{ key?: string; range: { from: number; to: number } | null }>({ range: null });
 
   useEffect(() => {
     const el = ref.current;
@@ -72,13 +80,16 @@ export function CandleChart({
     const times = candles.map((c) => local(c.t));
     const closes = candles.map((c) => c.c);
 
+    let main: ISeriesApi<SeriesType>;
     if (mode === "espelmes") {
       const s = chart.addSeries(CandlestickSeries, { upColor: UP, downColor: DOWN, borderVisible: false, wickUpColor: UP, wickDownColor: DOWN });
       s.setData(candles.map((c, i) => ({ time: times[i], open: c.o, high: c.h, low: c.l, close: c.c })));
+      main = s;
     } else {
       const up = closes[closes.length - 1] >= closes[0];
       const s = chart.addSeries(LineSeries, { color: up ? UP : DOWN, lineWidth: 2, priceLineVisible: true });
       s.setData(closes.map((c, i) => ({ time: times[i], value: c })));
+      main = s;
     }
 
     if (active.has("vol")) {
@@ -142,15 +153,21 @@ export function CandleChart({
 
     // Mostrem les últimes ~90 espelmes; es pot fer zoom i arrossegar
     const n = candles.length;
-    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 90), to: n + 2 });
+    const prev = saved.current;
+    if (prev.key === viewKey && prev.range) chart.timeScale().setVisibleLogicalRange(prev.range);
+    else chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 90), to: n + 2 });
 
     const ro = new ResizeObserver(() => chart.applyOptions({ width: el.clientWidth }));
     ro.observe(el);
+    onReady?.({ chart, series: main, container: el });
     return () => {
+      const r = chart.timeScale().getVisibleLogicalRange();
+      saved.current = { key: viewKey, range: r ? { from: r.from, to: r.to } : null };
+      onReady?.(null);
       ro.disconnect();
       chart.remove();
     };
-  }, [candles, active, mode, intraday]);
+  }, [candles, active, mode, intraday, onReady, viewKey]);
 
   return <div ref={ref} className="w-full" />;
 }

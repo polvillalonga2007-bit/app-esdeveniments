@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const items = [
   { href: "/cartera", label: "Cartera", icon: <path d="M3 7h18v12H3zM3 7l2-3h14l2 3M16 13h2" /> },
   { href: "/mercat", label: "Mercat", icon: <path d="M3 17l5-5 4 4 8-8M15 8h5v5" /> },
+  { href: "/noticies", label: "Notícies", icon: <path d="M4 5h13v14H6a2 2 0 0 1-2-2zM17 9h3v8a2 2 0 0 1-2 2M7 9h7M7 13h7M7 16h4" /> },
   { href: "/diari", label: "Diari", icon: <path d="M6 3h12v18H6zM9 7h6M9 11h6M9 15h4" /> },
 ];
 
