@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useRouter } from "next/navigation";
 import type { Quote } from "./market";
 import { loadState, saveState, START_CASH, State } from "./store";
+import { Currency, setDisplayCurrency } from "./format";
 
 type Ctx = {
   state: State;
@@ -12,6 +13,9 @@ type Ctx = {
   quotesError: boolean;
   quote: (symbol: string) => Quote | undefined;
   totals: { positionsValue: number; total: number; pnl: number; pnlPct: number };
+  currency: Currency;
+  setCurrency: (c: Currency) => void;
+  rate: number; // 1 € en la moneda triada
 };
 
 const AppCtx = createContext<Ctx | null>(null);
@@ -27,6 +31,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setRaw] = useState<State | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [quotesError, setQuotesError] = useState(false);
+  const [eurUsd, setEurUsd] = useState<number | null>(null);
+  const [currency, setCurrencyRaw] = useState<Currency>("USD");
+  useEffect(() => {
+    try {
+      const c = localStorage.getItem("parquet:moneda");
+      if (c === "EUR" || c === "USD") setCurrencyRaw(c);
+      const fx = Number(localStorage.getItem("parquet:eurusd"));
+      if (fx > 0.5 && fx < 2) setEurUsd(fx);
+    } catch {}
+  }, []);
+  const setCurrency = useCallback((c: Currency) => {
+    setCurrencyRaw(c);
+    try {
+      localStorage.setItem("parquet:moneda", c);
+    } catch {}
+  }, []);
 
   const setState = useCallback((s: State) => {
     setRaw(s);
@@ -40,6 +60,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (Array.isArray(j.quotes) && j.quotes.length) {
         setQuotes(j.quotes);
         setQuotesError(false);
+        if (typeof j.eurUsd === "number") {
+          setEurUsd(j.eurUsd);
+          try {
+            localStorage.setItem("parquet:eurusd", String(j.eurUsd));
+          } catch {}
+        }
       } else setQuotesError(true);
     } catch {
       setQuotesError(true);
@@ -73,5 +99,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   if (!state) return null;
 
-  return <AppCtx.Provider value={{ state, setState, quotes, quotesError, quote, totals }}>{children}</AppCtx.Provider>;
+  // Fins que no tenim el canvi del dia, mostrem euros
+  const effective: Currency = currency === "USD" && eurUsd ? "USD" : "EUR";
+  const rate = effective === "USD" ? (eurUsd as number) : 1;
+  setDisplayCurrency(effective, rate);
+
+  return (
+    <AppCtx.Provider value={{ state, setState, quotes, quotesError, quote, totals, currency: effective, setCurrency, rate }}>
+      {children}
+    </AppCtx.Provider>
+  );
 }

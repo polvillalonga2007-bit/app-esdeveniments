@@ -11,6 +11,7 @@ export type Quote = {
   open: boolean; // es pot operar ara mateix
   spark: number[]; // preus d'avui (en €), per al mini gràfic
   updatedAt: number;
+  native?: { currency: string; price: number; ext?: number; extLabel?: "pre-mercat" | "post-mercat"; extChangePct?: number };
 };
 
 type YahooMeta = {
@@ -24,10 +25,10 @@ type YahooChart = { meta: YahooMeta; timestamp?: number[]; closes: (number | nul
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
-async function yahooChart(symbol: string, range: string, interval: string, revalidate: number): Promise<YahooChart | null> {
+async function yahooChart(symbol: string, range: string, interval: string, revalidate: number, prePost = false): Promise<YahooChart | null> {
   for (const host of ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]) {
     try {
-      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`;
+      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=${prePost}`;
       const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" }, next: { revalidate } });
       if (!res.ok) continue;
       const json = await res.json();
@@ -81,12 +82,33 @@ function isOpen(asset: Asset, meta: YahooMeta): boolean {
 
 async function quoteFor(asset: Asset, fx: number | null, revalidate: number): Promise<Quote | null> {
   const toEur = asset.currency === "USD" ? (fx ? 1 / fx : null) : 1;
-  const y = await yahooChart(asset.symbol, "1d", "5m", revalidate);
+  // Per a les accions dels EUA també demanem el pre-mercat i el post-mercat (fora de l'horari normal)
+  const prePost = asset.currency === "USD";
+  const y = await yahooChart(asset.symbol, "1d", "5m", revalidate, prePost);
   if (y && y.meta.regularMarketPrice && toEur) {
     const price = y.meta.regularMarketPrice * toEur;
     const prevRaw = y.meta.chartPreviousClose ?? y.meta.previousClose ?? null;
     const prevClose = prevRaw ? prevRaw * toEur : null;
-    const spark = y.closes.filter((c): c is number => typeof c === "number").map((c) => c * toEur);
+    const reg = y.meta.currentTradingPeriod?.regular;
+    const ts = y.timestamp ?? [];
+    const inRegular = (i: number) => !prePost || !reg || (ts[i] >= reg.start && ts[i] < reg.end);
+    const spark = y.closes.flatMap((c, i) => (typeof c === "number" && inRegular(i) ? [c * toEur] : []));
+    let native: Quote["native"];
+    if (asset.currency !== "EUR") {
+      native = { currency: asset.currency, price: y.meta.regularMarketPrice };
+      // últim preu fora d'horari, si és més nou que el tancament
+      for (let i = ts.length - 1; i >= 0; i--) {
+        const c = y.closes[i];
+        if (typeof c !== "number") continue;
+        if (!inRegular(i) && ts[i] > (y.meta.regularMarketTime ?? 0)) {
+          const isPre = reg ? ts[i] < reg.start : false;
+          native.ext = c;
+          native.extLabel = isPre ? "pre-mercat" : "post-mercat";
+          native.extChangePct = ((c - y.meta.regularMarketPrice) / y.meta.regularMarketPrice) * 100;
+        }
+        break;
+      }
+    }
     return {
       symbol: asset.symbol,
       name: asset.name,
@@ -97,6 +119,7 @@ async function quoteFor(asset: Asset, fx: number | null, revalidate: number): Pr
       open: isOpen(asset, y.meta),
       spark,
       updatedAt: (y.meta.regularMarketTime ?? Date.now() / 1000) * 1000,
+      native,
     };
   }
   const cg = await coingeckoQuote(asset);
@@ -116,10 +139,10 @@ async function quoteFor(asset: Asset, fx: number | null, revalidate: number): Pr
   return null;
 }
 
-export async function getQuotes(): Promise<Quote[]> {
+export async function getQuotes(): Promise<{ quotes: Quote[]; eurUsd: number | null }> {
   const fx = await eurUsd();
   const quotes = await Promise.all(ASSETS.map((a) => quoteFor(a, fx, 60)));
-  return quotes.filter((q): q is Quote => q !== null);
+  return { quotes: quotes.filter((q): q is Quote => q !== null), eurUsd: fx };
 }
 
 // Preu fresc per executar una operació

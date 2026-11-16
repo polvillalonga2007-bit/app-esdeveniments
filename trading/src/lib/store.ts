@@ -67,7 +67,7 @@ export class TradeError extends Error {}
 
 const messages: Record<string, string> = {
   SALDO_INSUFICIENT: "No tens prou diners disponibles per a aquesta compra.",
-  MINIM_1_EURO: "L'import mínim és d'1 €.",
+  MINIM_1_EURO: "L'import mínim és d'1 € (uns 1,2 $).",
   NO_EN_TENS: "No en tens cap per vendre.",
   MERCAT_TANCAT: "El mercat està tancat ara mateix. Podràs operar quan torni a obrir.",
   PREU_NO_DISPONIBLE: "Ara mateix no podem obtenir el preu. Torna-ho a provar d'aquí a un moment.",

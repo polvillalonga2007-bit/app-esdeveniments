@@ -53,7 +53,9 @@ export function DrawingLayer({
   setDrawings,
   selected,
   setSelected,
+  scale = 1,
 }: {
+  scale?: number; // el gràfic pot estar en dòlars; els dibuixos es guarden en euros
   api: ChartApi | null;
   candles: Candle[];
   tool: Tool;
@@ -118,8 +120,8 @@ export function DrawingLayer({
     const l = ts.coordinateToLogical(x);
     return l == null ? times[n - 1] : logicalToTime(l);
   };
-  const py = (p: number) => series.priceToCoordinate(p) ?? -9999;
-  const yp = (y: number) => series.coordinateToPrice(y) ?? 0;
+  const py = (p: number) => series.priceToCoordinate(p * scale) ?? -9999;
+  const yp = (y: number) => (series.coordinateToPrice(y) ?? 0) / scale;
 
   function local(e: React.PointerEvent) {
     const r = svgRef.current!.getBoundingClientRect();

@@ -4,19 +4,23 @@ import Link from "next/link";
 import { Card, Disclaimer, Loading, SectionTitle } from "@/components/ui";
 import { Sparkline } from "@/components/sparkline";
 import { useApp } from "@/lib/app-context";
+import { CurrencyToggle } from "@/components/currency-toggle";
 import { ASSETS, AssetType, TYPE_LABEL, shortTicker } from "@/lib/assets";
 import { pct, price, tone } from "@/lib/format";
 
 const ORDER: AssetType[] = ["cripto", "eua", "espanya", "fons"];
 
 export default function Mercat() {
-  const { quote, quotes, quotesError } = useApp();
+  const { quote, quotes, quotesError, currency } = useApp();
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-5">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Mercat</h1>
-        <p className="text-sm text-muted">Preus en euros, s&apos;actualitzen cada 30 segons.</p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Mercat</h1>
+          <p className="text-sm text-muted">Preus en {currency === "USD" ? "dòlars" : "euros"}, s&apos;actualitzen cada 30 segons.</p>
+        </div>
+        <CurrencyToggle />
       </header>
       {quotes.length === 0 && !quotesError && <Loading text="Carregant preus…" />}
       {quotesError && quotes.length === 0 && (

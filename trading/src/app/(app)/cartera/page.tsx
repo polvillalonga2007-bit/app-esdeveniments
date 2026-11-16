@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Card, Disclaimer, Logo, SectionTitle, secondaryButton } from "@/components/ui";
 import { useApp } from "@/lib/app-context";
+import { CurrencyToggle } from "@/components/currency-toggle";
 import { money, pct, qty, signedMoney, tone } from "@/lib/format";
 import { shortTicker } from "@/lib/assets";
 import { resetState, START_CASH } from "@/lib/store";
@@ -23,7 +24,10 @@ export default function Cartera() {
     <main className="flex flex-col gap-5 px-4 pt-5">
       <header className="flex items-center justify-between">
         <Logo />
-        <span className="text-sm text-muted">Hola, {state.user.nickname}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted">Hola, {state.user.nickname}</span>
+          <CurrencyToggle />
+        </div>
       </header>
 
       <div className="flex flex-col gap-1 rounded-2xl bg-brand p-4 text-white">
@@ -87,7 +91,7 @@ export default function Cartera() {
             </div>
           </Card>
         ) : (
-          <button className={secondaryButton} onClick={() => setConfirmReset(true)}>Tornar a començar amb 10.000 €</button>
+          <button className={secondaryButton} onClick={() => setConfirmReset(true)}>Tornar a començar amb {money(START_CASH)}</button>
         )}
       </section>
       <Disclaimer />

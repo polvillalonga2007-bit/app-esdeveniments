@@ -1,14 +1,46 @@
-const eur = new Intl.NumberFormat("ca-ES", { style: "currency", currency: "EUR" });
-const eurSmall = new Intl.NumberFormat("ca-ES", { style: "currency", currency: "EUR", maximumSignificantDigits: 4 });
+// Tots els imports de l'app es guarden en euros. Aquí es mostren en la moneda triada (dòlars o euros).
+export type Currency = "USD" | "EUR";
 
-export function money(n: number): string {
-  return eur.format(n);
+const fmts: Record<"EUR", { big: Intl.NumberFormat; small: Intl.NumberFormat }> = {
+  EUR: {
+    big: new Intl.NumberFormat("ca-ES", { style: "currency", currency: "EUR" }),
+    small: new Intl.NumberFormat("ca-ES", { style: "currency", currency: "EUR", maximumSignificantDigits: 4 }),
+  },
+};
+
+// En català els dòlars surten com "100,00 USD"; els mostrem com "100,00 $".
+function fmt(n: number, kind: "big" | "small"): string {
+  const out = fmts.EUR[kind].format(n);
+  return display.currency === "USD" ? out.replace("€", "$") : out;
+}
+
+let display: { currency: Currency; rate: number } = { currency: "EUR", rate: 1 };
+
+// rate = quantes unitats de la moneda triada val 1 euro
+export function setDisplayCurrency(currency: Currency, rate: number) {
+  display = { currency, rate: currency === "EUR" ? 1 : rate };
+}
+export function displayCurrency() {
+  return display;
+}
+export const toDisp = (eur: number) => eur * display.rate;
+export const fromDisp = (v: number) => v / display.rate;
+export const currencySymbol = () => (display.currency === "USD" ? "$" : "€");
+
+// Import ja en la moneda triada (sense convertir)
+export function moneyRaw(n: number): string {
+  return fmt(n, "big");
+}
+
+export function money(eurAmount: number): string {
+  return fmt(toDisp(eurAmount), "big");
 }
 
 // Preu d'una unitat: les cripto barates necessiten més decimals
-export function price(n: number): string {
-  if (Math.abs(n) > 0 && Math.abs(n) < 1) return eurSmall.format(n);
-  return eur.format(n);
+export function price(eurAmount: number): string {
+  const v = toDisp(eurAmount);
+  if (Math.abs(v) > 0 && Math.abs(v) < 1) return fmt(v, "small");
+  return fmt(v, "big");
 }
 
 export function signedMoney(n: number): string {
@@ -33,4 +65,10 @@ export function dateTime(iso: string): string {
 export function tone(n: number | null | undefined): string {
   if (n == null || Math.abs(n) < 0.004) return "text-muted";
   return n > 0 ? "text-up" : "text-down";
+}
+
+// Import en una moneda concreta (p. ex. el preu original d'una acció dels EUA)
+export function nativeMoney(n: number, cur: string): string {
+  if (cur === "USD" || cur === "EUR") return fmts.EUR.big.format(n).replace("€", cur === "USD" ? "$" : "€");
+  return n.toLocaleString("ca-ES", { style: "currency", currency: cur });
 }

@@ -11,7 +11,7 @@ import { ChartTabs } from "@/components/chart-tabs";
 import { SrLayer } from "@/components/sr-layer";
 import { useApp } from "@/lib/app-context";
 import { HOURS_LABEL, findAsset, shortTicker } from "@/lib/assets";
-import { dateTime, money, pct, price, qty, signedMoney, tone } from "@/lib/format";
+import { currencySymbol, dateTime, fromDisp, money, moneyRaw, nativeMoney, pct, price, qty, signedMoney, toDisp, tone } from "@/lib/format";
 import { applyTrade, errorText, TradeError } from "@/lib/store";
 import type { Quote } from "@/lib/market";
 
@@ -44,7 +44,7 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
 
 function ActiuView({ symbol }: { symbol: string }) {
   const asset = findAsset(symbol);
-  const { state, setState, quote } = useApp();
+  const { state, setState, quote, currency, rate } = useApp();
   const q = quote(symbol);
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [candles, setCandles] = useState<Candle[] | null>(null);
@@ -139,6 +139,11 @@ function ActiuView({ symbol }: { symbol: string }) {
     return () => api.chart.unsubscribeClick(h);
   }, [api]);
 
+  const dispCandles = useMemo(
+    () => (candles && rate !== 1 ? candles.map((c) => ({ ...c, o: c.o * rate, h: c.h * rate, l: c.l * rate, c: c.c * rate })) : candles),
+    [candles, rate],
+  );
+
   const activeSet = useMemo(() => new Set(prefs?.ind ?? []), [prefs?.ind]);
 
   if (!asset) {
@@ -155,7 +160,7 @@ function ActiuView({ symbol }: { symbol: string }) {
   const posPnl = pos ? posValue - pos.cost : 0;
   const myTrades = state.trades.filter((t) => t.symbol === symbol).slice(0, 5);
   const max = side === "compra" ? state.user.cash : posValue;
-  const amountNum = Number(amount.replace(",", "."));
+  const amountNum = fromDisp(Number(amount.replace(",", "."))); // en euros
   const sellAll = side === "venda" && pos && amountNum >= posValue * 0.999;
 
   async function submit(e: React.FormEvent) {
@@ -209,8 +214,27 @@ function ActiuView({ symbol }: { symbol: string }) {
         <div className="px-1">
           <div className="text-[32px] font-bold leading-tight tracking-tight">{q ? price(q.price) : "–"}</div>
           <div className={`text-[15px] font-semibold ${tone(q?.changePct)}`}>
-            {pct(q?.changePct)} <span className="font-normal text-muted">avui</span>
+            {pct(q?.changePct)} <span className="font-normal text-muted">{q && !q.open && asset.type !== "cripto" ? "a l'últim tancament" : "avui"}</span>
           </div>
+          {q?.native && (q.native.currency !== currency || q.native.ext != null) && (
+            <div className="mt-1 flex flex-col gap-0.5 text-[13px] text-muted">
+              {q.native.currency !== currency && <span>
+                Preu original: <strong className="text-ink">{nativeMoney(q.native.price, q.native.currency)}</strong> (passat a {currency === "USD" ? "dòlars" : "euros"} al canvi d&apos;avui)
+              </span>}
+              {q.native.ext != null && (
+                <span>
+                  Ara al {q.native.extLabel}:{" "}
+                  <strong className="text-ink">{nativeMoney(q.native.ext, q.native.currency)}</strong>{" "}
+                  <span className={`font-semibold ${tone(q.native.extChangePct)}`}>{pct(q.native.extChangePct)}</span>
+                </span>
+              )}
+            </div>
+          )}
+          {q && !q.open && asset.type !== "cripto" && (
+            <p className="mt-1 text-[13px] text-muted">
+              La borsa està tancada: el preu és el del tancament del {new Date(q.updatedAt).toLocaleString("ca-ES", { weekday: "long", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="no-scrollbar flex flex-1 gap-0.5 overflow-x-auto rounded-xl bg-ground p-1 text-[13px] font-semibold">
@@ -258,17 +282,18 @@ function ActiuView({ symbol }: { symbol: string }) {
             candles.length > 1 ? (
               <>
                 <CandleChart
-                  candles={candles}
+                  candles={dispCandles!}
                   active={activeSet}
                   mode={prefs.mode}
                   intraday={!["1d", "1wk"].includes(prefs.tf)}
                   onReady={onReady}
                   viewKey={`${symbol}|${prefs.tf}`}
                 />
-                {activeSet.has("sr") && <SrLayer api={api} candles={candles} />}
+                {activeSet.has("sr") && <SrLayer api={api} candles={dispCandles!} />}
                 <DrawingLayer
                   api={api}
                   candles={candles}
+                  scale={rate}
                   tool={tool}
                   setTool={setTool}
                   drawings={drawings}
@@ -357,7 +382,7 @@ function ActiuView({ symbol }: { symbol: string }) {
               </button>
             ))}
           </div>
-          <Field label={side === "compra" ? "Quants euros vols invertir?" : "Quants euros en vols vendre?"} hint={`Màxim: ${money(max)}`}>
+          <Field label={`${side === "compra" ? "Quants" : "Quants"} ${currency === "USD" ? "dòlars" : "euros"} ${side === "compra" ? "vols invertir?" : "en vols vendre?"}`} hint={`Màxim: ${money(max)}`}>
             <div className="relative">
               <input
                 className={`${inputClass} pr-10`}
@@ -367,16 +392,16 @@ function ActiuView({ symbol }: { symbol: string }) {
                 placeholder="0"
                 required
               />
-              <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted">€</span>
+              <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted">{currencySymbol()}</span>
             </div>
           </Field>
           <div className="flex flex-wrap gap-2">
             {quick.map((v) => (
               <button key={v} type="button" onClick={() => setAmount(String(v))} className="h-9 rounded-full border border-line px-3.5 text-sm font-semibold hover:bg-black/[0.03]">
-                {money(v).replace(",00", "")}
+                {moneyRaw(v).replace(",00", "")}
               </button>
             ))}
-            <button type="button" onClick={() => setAmount((Math.floor(max * 100) / 100).toFixed(2))} className="h-9 rounded-full border border-line px-3.5 text-sm font-semibold hover:bg-black/[0.03]">
+            <button type="button" onClick={() => setAmount((Math.floor(toDisp(max) * 100) / 100).toFixed(2))} className="h-9 rounded-full border border-line px-3.5 text-sm font-semibold hover:bg-black/[0.03]">
               {side === "compra" ? "Tot el disponible" : "Vendre-ho tot"}
             </button>
           </div>
