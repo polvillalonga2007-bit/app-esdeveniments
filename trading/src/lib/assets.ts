@@ -42,7 +42,7 @@ export const TYPE_LABEL: Record<AssetType, string> = {
 export const HOURS_LABEL: Record<AssetType, string> = {
   cripto: "Obert 24 hores, cada dia",
   eua: "Borsa de Nova York: de dilluns a divendres, de 15:30 a 22:00 (hora d'aquí)",
-  espanya: "Borsa de Madrid: de dilluns a divendres, de 9:00 a 17:30",
+  espanya: "Borsa de Madrid: de dilluns a divendres, de 9:00 a 17:30. Preus amb uns 15 minuts de retard",
   fons: "Borsa de Nova York: de dilluns a divendres, de 15:30 a 22:00 (hora d'aquí)",
 };
 

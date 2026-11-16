@@ -10,10 +10,10 @@ import {
   type IChartApi,
   type UTCTimestamp,
 } from "lightweight-charts";
-import { bollinger, ema, macd, rsi, sma } from "@/lib/indicators";
+import { bollinger, ema, macd, rsi, sma, stochastic } from "@/lib/indicators";
 
 export type Candle = { t: number; o: number; h: number; l: number; c: number; v: number };
-export type IndicatorKey = "mm20" | "mm50" | "mm200" | "ema20" | "boll" | "vol" | "rsi" | "macd";
+export type IndicatorKey = "mm20" | "mm50" | "mm200" | "ema20" | "ema45" | "boll" | "stoch" | "vol" | "rsi" | "macd";
 
 const UP = "#16a34a";
 const DOWN = "#dc2626";
@@ -24,9 +24,11 @@ export const INDICATORS: { key: IndicatorKey; label: string; color: string; help
   { key: "mm50", label: "MM 50", color: "#3b82f6", help: "Mitjana mòbil de 50 espelmes: tendència mitjana." },
   { key: "mm200", label: "MM 200", color: "#a855f7", help: "Mitjana mòbil de 200 espelmes: tendència llarga. Molt mirada als gràfics diaris." },
   { key: "ema20", label: "EMA 20", color: "#ec4899", help: "Mitjana exponencial de 20: com la MM 20 però dona més pes als preus més recents, reacciona abans." },
+  { key: "ema45", label: "EMA 45", color: "#14b8a6", help: "Mitjana exponencial de 45: tendència una mica més llarga que l'EMA 20. Quan l'EMA 20 la creua cap amunt, molts ho llegeixen com a senyal alcista." },
   { key: "boll", label: "Bollinger", color: "#64748b", help: "Bandes a 2 desviacions de la MM 20. Quan el preu toca la banda de dalt està 'car' respecte al normal; la de baix, 'barat'." },
   { key: "rsi", label: "RSI", color: "#7c3aed", help: "Índex de força relativa (0 a 100). Per sobre de 70 es considera sobrecomprat; per sota de 30, sobrevenut." },
   { key: "macd", label: "MACD", color: "#0ea5e9", help: "Diferència entre dues mitjanes (12 i 26). Quan la línia blava creua per sobre la taronja és senyal alcista; per sota, baixista." },
+  { key: "stoch", label: "Estocàstic", color: "#e11d48", help: "Estocàstic (14, 3, 3): on és el preu dins del rang de les últimes 14 espelmes, de 0 a 100. Per sobre de 80, sobrecomprat; per sota de 20, sobrevenut. La línia vermella (%K) creuant la gris (%D) dona senyals d'entrada o sortida." },
 ];
 
 const color = (k: IndicatorKey) => INDICATORS.find((i) => i.key === k)!.color;
@@ -54,7 +56,7 @@ export function CandleChart({
   useEffect(() => {
     const el = ref.current;
     if (!el || candles.length === 0) return;
-    const panes = 1 + (active.has("rsi") ? 1 : 0) + (active.has("macd") ? 1 : 0);
+    const panes = 1 + (active.has("rsi") ? 1 : 0) + (active.has("stoch") ? 1 : 0) + (active.has("macd") ? 1 : 0);
     const height = panes === 1 ? 320 : 320 + (panes - 1) * 107;
     const chart: IChartApi = createChart(el, {
       height,
@@ -100,6 +102,7 @@ export function CandleChart({
     if (active.has("mm50")) overlay("mm50", sma(closes, 50));
     if (active.has("mm200")) overlay("mm200", sma(closes, 200));
     if (active.has("ema20")) overlay("ema20", ema(closes, 20));
+    if (active.has("ema45")) overlay("ema45", ema(closes, 45));
     if (active.has("boll")) {
       const b = bollinger(closes);
       overlay("boll", b.upper, { dashed: true });
@@ -113,6 +116,16 @@ export function CandleChart({
       s.setData(line(times, rsi(closes)));
       s.createPriceLine({ price: 70, color: DOWN, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "" });
       s.createPriceLine({ price: 30, color: UP, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "" });
+      pane++;
+    }
+    if (active.has("stoch")) {
+      const st = stochastic(candles.map((c) => c.h), candles.map((c) => c.l), closes);
+      const k = chart.addSeries(LineSeries, { color: color("stoch"), lineWidth: 1, priceLineVisible: false }, pane);
+      k.setData(line(times, st.k));
+      const d = chart.addSeries(LineSeries, { color: "#94a3b8", lineWidth: 1, priceLineVisible: false, lastValueVisible: false }, pane);
+      d.setData(line(times, st.d));
+      k.createPriceLine({ price: 80, color: DOWN, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "" });
+      k.createPriceLine({ price: 20, color: UP, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "" });
       pane++;
     }
     if (active.has("macd")) {

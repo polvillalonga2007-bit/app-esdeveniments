@@ -84,3 +84,21 @@ export function macd(values: number[], fast = 12, slow = 26, signal = 9) {
   const hist = line.map((v, i) => (v != null && sig[i] != null ? v - (sig[i] as number) : null));
   return { line, signal: sig, hist };
 }
+
+// Estocàstic lent (%K de 14, suavitzat 3, %D de 3)
+export function stochastic(highs: number[], lows: number[], closes: number[], period = 14, smoothK = 3, smoothD = 3) {
+  const raw: (number | null)[] = closes.map((c, i) => {
+    if (i < period - 1) return null;
+    const hh = Math.max(...highs.slice(i - period + 1, i + 1));
+    const ll = Math.min(...lows.slice(i - period + 1, i + 1));
+    return hh === ll ? 50 : ((c - ll) / (hh - ll)) * 100;
+  });
+  const smooth = (vals: (number | null)[], n: number) =>
+    vals.map((_, i) => {
+      const w = vals.slice(Math.max(0, i - n + 1), i + 1);
+      return w.length === n && w.every((v) => v != null) ? (w as number[]).reduce((a, b) => a + b, 0) / n : null;
+    });
+  const k = smooth(raw, smoothK);
+  const d = smooth(k, smoothD);
+  return { k, d };
+}
