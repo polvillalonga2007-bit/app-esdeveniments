@@ -130,27 +130,71 @@ export async function getFreshQuote(symbol: string): Promise<Quote | null> {
   return quoteFor(asset, fx, 10);
 }
 
-const RANGES: Record<string, { range: string; interval: string }> = {
-  "1d": { range: "1d", interval: "5m" },
-  "5d": { range: "5d", interval: "30m" },
-  "1mo": { range: "1mo", interval: "1d" },
-  "6mo": { range: "6mo", interval: "1d" },
-  "1y": { range: "1y", interval: "1wk" },
+export type Candle = { t: number; o: number; h: number; l: number; c: number; v: number };
+
+// Temporalitats del gràfic d'espelmes: quin període i quina mida d'espelma demanem a Yahoo
+export const TIMEFRAMES: Record<string, { range: string; interval: string; group?: number; revalidate: number }> = {
+  "1m": { range: "1d", interval: "1m", revalidate: 30 },
+  "5m": { range: "5d", interval: "5m", revalidate: 60 },
+  "15m": { range: "1mo", interval: "15m", revalidate: 120 },
+  "1h": { range: "3mo", interval: "60m", revalidate: 300 },
+  "4h": { range: "1y", interval: "60m", group: 4, revalidate: 600 },
+  "1d": { range: "2y", interval: "1d", revalidate: 900 },
+  "1wk": { range: "10y", interval: "1wk", revalidate: 3600 },
 };
 
-export async function getChart(symbol: string, range: string): Promise<{ t: number; p: number }[] | null> {
+async function yahooCandles(symbol: string, range: string, interval: string, revalidate: number) {
+  for (const host of ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]) {
+    try {
+      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`;
+      const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" }, next: { revalidate } });
+      if (!res.ok) continue;
+      const r = (await res.json())?.chart?.result?.[0];
+      const q = r?.indicators?.quote?.[0];
+      if (!r?.timestamp || !q) continue;
+      return { t: r.timestamp as number[], o: q.open, h: q.high, l: q.low, c: q.close, v: q.volume } as {
+        t: number[]; o: (number | null)[]; h: (number | null)[]; l: (number | null)[]; c: (number | null)[]; v: (number | null)[];
+      };
+    } catch {}
+  }
+  return null;
+}
+
+// Ajunta espelmes petites en una de més gran (p. ex. 4 d'una hora = 1 de 4 hores)
+function group(candles: Candle[], hours: number): Candle[] {
+  const size = hours * 3600;
+  const out: Candle[] = [];
+  for (const k of candles) {
+    const bucket = Math.floor(k.t / size) * size;
+    const last = out[out.length - 1];
+    if (last && last.t === bucket) {
+      last.h = Math.max(last.h, k.h);
+      last.l = Math.min(last.l, k.l);
+      last.c = k.c;
+      last.v += k.v;
+    } else out.push({ ...k, t: bucket });
+  }
+  return out;
+}
+
+export async function getCandles(symbol: string, tf: string): Promise<Candle[] | null> {
   const asset = findAsset(symbol);
-  const r = RANGES[range];
-  if (!asset || !r) return null;
+  const cfg = TIMEFRAMES[tf];
+  if (!asset || !cfg) return null;
   const fx = asset.currency === "USD" ? await eurUsd() : 1;
   if (!fx) return null;
-  const toEur = asset.currency === "USD" ? 1 / fx : 1;
-  const y = await yahooChart(symbol, r.range, r.interval, range === "1d" ? 60 : 600);
-  if (!y?.timestamp) return null;
-  const out: { t: number; p: number }[] = [];
-  y.timestamp.forEach((t, i) => {
-    const c = y.closes[i];
-    if (typeof c === "number") out.push({ t: t * 1000, p: c * toEur });
+  const k = asset.currency === "USD" ? 1 / fx : 1;
+  const y = await yahooCandles(symbol, cfg.range, cfg.interval, cfg.revalidate);
+  if (!y) return null;
+  let out: Candle[] = [];
+  const seen = new Set<number>();
+  y.t.forEach((t, i) => {
+    const [o, h, l, c] = [y.o[i], y.h[i], y.l[i], y.c[i]];
+    if (o == null || h == null || l == null || c == null || seen.has(t)) return;
+    seen.add(t);
+    out.push({ t, o: o * k, h: h * k, l: l * k, c: c * k, v: y.v[i] ?? 0 });
   });
+  out.sort((a, b) => a.t - b.t);
+  if (cfg.group) out = group(out, cfg.group);
   return out;
 }

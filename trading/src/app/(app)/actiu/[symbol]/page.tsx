@@ -1,22 +1,34 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BackLink, Card, Disclaimer, ErrorBox, Field, SectionTitle, inputClass } from "@/components/ui";
-import { PriceChart } from "@/components/price-chart";
+import { Candle, CandleChart, INDICATORS, IndicatorKey } from "@/components/candle-chart";
 import { useApp } from "@/lib/app-context";
 import { HOURS_LABEL, findAsset, shortTicker } from "@/lib/assets";
 import { dateTime, money, pct, price, qty, signedMoney, tone } from "@/lib/format";
 import { applyTrade, errorText, TradeError } from "@/lib/store";
 import type { Quote } from "@/lib/market";
 
-const RANGES = [
-  ["1d", "Avui"],
-  ["5d", "5 dies"],
-  ["1mo", "1 mes"],
-  ["6mo", "6 mesos"],
-  ["1y", "1 any"],
+const TIMEFRAMES = [
+  ["1m", "1m"],
+  ["5m", "5m"],
+  ["15m", "15m"],
+  ["1h", "1h"],
+  ["4h", "4h"],
+  ["1d", "1D"],
+  ["1wk", "1S"],
 ] as const;
+
+const PREFS = "parquet:grafic";
+type Prefs = { tf: string; ind: IndicatorKey[]; mode: "espelmes" | "linia" };
+function loadPrefs(): Prefs {
+  try {
+    const p = JSON.parse(localStorage.getItem(PREFS) ?? "null");
+    if (p && typeof p.tf === "string" && Array.isArray(p.ind)) return p;
+  } catch {}
+  return { tf: "15m", ind: ["vol", "mm20"], mode: "espelmes" };
+}
 
 export default function Actiu({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol: raw } = use(params);
@@ -24,9 +36,10 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
   const asset = findAsset(symbol);
   const { state, setState, quote } = useApp();
   const q = quote(symbol);
-  const [range, setRange] = useState<string>("1d");
-  const [points, setPoints] = useState<{ t: number; p: number }[] | null>(null);
+  const [prefs, setPrefs] = useState<Prefs | null>(null);
+  const [candles, setCandles] = useState<Candle[] | null>(null);
   const [chartError, setChartError] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [side, setSide] = useState<"compra" | "venda">("compra");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -34,18 +47,41 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState("");
 
+  useEffect(() => setPrefs(loadPrefs()), []);
+
+  function updatePrefs(p: Partial<Prefs>) {
+    setPrefs((old) => {
+      const next = { ...(old ?? loadPrefs()), ...p };
+      try {
+        localStorage.setItem(PREFS, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
+
+  const tf = prefs?.tf;
   useEffect(() => {
+    if (!tf) return;
     let alive = true;
-    setPoints(null);
-    setChartError(false);
-    fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}&range=${range}`)
-      .then((r) => r.json())
-      .then((j) => alive && (j.points ? setPoints(j.points) : setChartError(true)))
-      .catch(() => alive && setChartError(true));
+    const load = (first: boolean) => {
+      if (first) {
+        setCandles(null);
+        setChartError(false);
+      }
+      fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}&tf=${tf}`)
+        .then((r) => r.json())
+        .then((j) => alive && (j.candles ? setCandles(j.candles) : first && setChartError(true)))
+        .catch(() => alive && first && setChartError(true));
+    };
+    load(true);
+    const id = setInterval(() => load(false), tf === "1m" || tf === "5m" ? 30_000 : 120_000);
     return () => {
       alive = false;
+      clearInterval(id);
     };
-  }, [symbol, range]);
+  }, [symbol, tf]);
+
+  const activeSet = useMemo(() => new Set(prefs?.ind ?? []), [prefs?.ind]);
 
   if (!asset) {
     return (
@@ -63,7 +99,6 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
   const max = side === "compra" ? state.user.cash : posValue;
   const amountNum = Number(amount.replace(",", "."));
   const sellAll = side === "venda" && pos && amountNum >= posValue * 0.999;
-  const chartChange = points && points.length > 1 ? ((points[points.length - 1].p - points[0].p) / points[0].p) * 100 : null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,22 +146,78 @@ export default function Actiu({ params }: { params: Promise<{ symbol: string }> 
         </div>
       </header>
 
-      <Card className="flex flex-col gap-3">
-        <div>
+      <Card className="flex flex-col gap-3 px-3">
+        <div className="px-1">
           <div className="text-[32px] font-bold leading-tight tracking-tight">{q ? price(q.price) : "–"}</div>
-          <div className={`text-[15px] font-semibold ${tone(range === "1d" ? q?.changePct : chartChange)}`}>
-            {pct(range === "1d" ? q?.changePct : chartChange)} <span className="font-normal text-muted">{RANGES.find((r) => r[0] === range)?.[1].toLowerCase()}</span>
+          <div className={`text-[15px] font-semibold ${tone(q?.changePct)}`}>
+            {pct(q?.changePct)} <span className="font-normal text-muted">avui</span>
           </div>
         </div>
-        {points ? <PriceChart points={points} range={range} /> : chartError ? <div className="flex h-[200px] items-center justify-center text-sm text-muted">No s&apos;ha pogut carregar el gràfic</div> : <div className="h-[200px] animate-pulse rounded-xl bg-ground" />}
-        <div className="grid grid-cols-5 gap-1 rounded-xl bg-ground p-1 text-sm font-semibold">
-          {RANGES.map(([r, l]) => (
-            <button key={r} type="button" onClick={() => setRange(r)} className={`h-9 rounded-lg ${range === r ? "bg-white shadow-sm" : "text-muted"}`}>
-              {l}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="no-scrollbar flex flex-1 gap-0.5 overflow-x-auto rounded-xl bg-ground p-1 text-[13px] font-semibold">
+            {TIMEFRAMES.map(([k, l]) => (
+              <button key={k} type="button" onClick={() => updatePrefs({ tf: k })} className={`h-8 min-w-9 flex-1 rounded-lg px-1 ${tf === k ? "bg-white shadow-sm" : "text-muted"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => updatePrefs({ mode: prefs?.mode === "linia" ? "espelmes" : "linia" })}
+            aria-label={prefs?.mode === "linia" ? "Veure espelmes" : "Veure línia"}
+            title={prefs?.mode === "linia" ? "Veure espelmes" : "Veure línia"}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ground text-ink"
+          >
+            {prefs?.mode === "linia" ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M7 4v16M17 4v16" /><rect x="5" y="8" width="4" height="7" fill="currentColor" /><rect x="15" y="6" width="4" height="9" /></svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8" /></svg>
+            )}
+          </button>
         </div>
-        <p className="flex items-center gap-2 text-xs text-muted">
+        <div className="-mx-1">
+          {candles && prefs ? (
+            candles.length > 1 ? (
+              <CandleChart candles={candles} active={activeSet} mode={prefs.mode} intraday={!["1d", "1wk"].includes(prefs.tf)} />
+            ) : (
+              <div className="flex h-[320px] items-center justify-center text-sm text-muted">Encara no hi ha dades per a aquesta temporalitat</div>
+            )
+          ) : chartError ? (
+            <div className="flex h-[320px] items-center justify-center text-sm text-muted">No s&apos;ha pogut carregar el gràfic</div>
+          ) : (
+            <div className="h-[320px] animate-pulse rounded-xl bg-ground" />
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {INDICATORS.map((ind) => {
+            const on = activeSet.has(ind.key);
+            return (
+              <button
+                key={ind.key}
+                type="button"
+                aria-pressed={on}
+                onClick={() => updatePrefs({ ind: on ? (prefs?.ind ?? []).filter((k) => k !== ind.key) : [...(prefs?.ind ?? []), ind.key] })}
+                className={`flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold ${on ? "border-ink bg-ink text-white" : "border-line text-muted"}`}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ background: ind.color }} />
+                {ind.label}
+              </button>
+            );
+          })}
+          <button type="button" onClick={() => setShowHelp((v) => !v)} className="h-8 rounded-full px-2 text-[13px] font-semibold text-brand">
+            {showHelp ? "Amagar ajuda" : "Què vol dir?"}
+          </button>
+        </div>
+        {showHelp && (
+          <ul className="flex flex-col gap-2 rounded-xl bg-ground p-3 text-[13px] leading-relaxed">
+            <li><strong>Espelmes:</strong> cada espelma és un període (p. ex. 15 minuts). El cos va del preu d&apos;obertura al de tancament; verda si ha pujat, vermella si ha baixat. Les línies fines marquen el màxim i el mínim.</li>
+            {INDICATORS.map((i) => (
+              <li key={i.key}><strong>{i.label}:</strong> {i.help}</li>
+            ))}
+            <li className="text-muted">Pots fer zoom amb dos dits o la roda del ratolí i arrossegar per veure el passat.</li>
+          </ul>
+        )}
+        <p className="flex items-center gap-2 px-1 text-xs text-muted">
           <span className={`inline-block h-2 w-2 rounded-full ${q?.open ? "bg-up" : "bg-muted"}`} />
           {q?.open ? "Mercat obert" : "Mercat tancat"} · {HOURS_LABEL[asset.type]}
         </p>
