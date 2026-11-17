@@ -6,7 +6,8 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], weight: ["600", "700"] });
 
 export const metadata: Metadata = {
-  title: "Torn · Reserves per a negocis",
+  title: "BookMe · Reserves per a negocis",
+  appleWebApp: { capable: true, title: "BookMe", statusBarStyle: "default" },
   description: "Els teus clients reserven hora des del mòbil, sense trucar.",
 };
 

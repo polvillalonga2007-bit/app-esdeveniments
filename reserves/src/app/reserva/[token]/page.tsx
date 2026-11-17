@@ -20,7 +20,7 @@ type MyBooking = {
 function icsHref(b: MyBooking) {
   const fmt = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   const lines = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Torn//Reserves//CA", "BEGIN:VEVENT",
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//BookMe//Reserves//CA", "BEGIN:VEVENT",
     `UID:${fmt(b.starts_at)}-${b.business.slug}@torn`, `DTSTAMP:${fmt(new Date().toISOString())}`,
     `DTSTART:${fmt(b.starts_at)}`, `DTEND:${fmt(b.ends_at)}`,
     `SUMMARY:${b.service_name} · ${b.business.name}`,

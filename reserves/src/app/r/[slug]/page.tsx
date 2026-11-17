@@ -197,7 +197,7 @@ export default function BookPage() {
       </div>
 
       <p className="pt-12 text-center text-xs text-muted">
-        Reserves amb <Link href="/" className="font-semibold">Torn</Link>
+        Reserves amb <Link href="/" className="font-semibold">BookMe</Link>
       </p>
     </main>
   );

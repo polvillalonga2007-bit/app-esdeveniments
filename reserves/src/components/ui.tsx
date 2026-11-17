@@ -55,7 +55,7 @@ export function Logo() {
           <path d="M12 7.5V12l3 2" />
         </svg>
       </span>
-      Torn
+      BookMe
     </span>
   );
 }
