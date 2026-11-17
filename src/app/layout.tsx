@@ -8,6 +8,7 @@ const grotesk = Space_Grotesk({ variable: "--font-grotesk", subsets: ["latin"], 
 export const metadata: Metadata = {
   title: "Quedem",
   description: "Organitza aniversaris i celebracions sense el soroll del grup de WhatsApp.",
+  appleWebApp: { capable: true, title: "Quedem", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = { themeColor: "#0f766e" };
