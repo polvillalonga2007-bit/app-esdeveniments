@@ -45,6 +45,10 @@ export type Business = {
   notice?: { title: string; text: string };
   photos: { hero: Photo; steps: Photo[]; gallery: Photo[] };
   heroVideo?: string;
+  team?: { name: string; role: string; text?: string; photo?: Photo }[];
+  reviews?: { rating: number; count: number; items: { text: string; author: string; when?: string }[] };
+  offers?: { title: string; text: string; price?: string; tag?: string }[];
+  faq?: { q: string; a: string }[];
   legal: { owner: string; nif: string; address: string };
   variant: Variant;
   demo: boolean;

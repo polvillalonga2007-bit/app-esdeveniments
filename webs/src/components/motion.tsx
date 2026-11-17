@@ -41,19 +41,66 @@ export function Img({ photo, className, sizes = "100vw", eager }: { photo: Photo
   );
 }
 
-/** Foto o vídeo de portada: zoom lent en entrar i s'allunya en fer scroll. */
+/** Foto o vídeo de portada: zoom lent en entrar i s'allunya en fer scroll.
+ *  El vídeo només es carrega si la persona no ha demanat menys moviment ni estalvi de dades. */
 export function HeroMedia({ photo, video, className = "" }: { photo: Photo; video?: string; className?: string }) {
   const ref = useScrollVar<HTMLDivElement>("leave");
+  const [play, setPlay] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const c = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    if (video && !reduced() && !c?.saveData) setPlay(true);
+  }, [video]);
   return (
     <div ref={ref} className={`hero-media ${className}`}>
-      {video ? (
-        <video className="hero-media__el" autoPlay muted loop playsInline poster={photoUrl(photo.src, 1600)} aria-label={photo.alt}>
+      <Img photo={photo} eager className="hero-media__el kenburns" />
+      {play ? (
+        <video className={`hero-media__el hero-media__video ${ready ? "is-ready" : ""}`} autoPlay muted loop playsInline preload="auto"
+          onCanPlay={() => setReady(true)} aria-hidden>
           <source src={video} type="video/mp4" />
         </video>
-      ) : (
-        <Img photo={photo} eager className="hero-media__el kenburns" />
-      )}
+      ) : null}
     </div>
+  );
+}
+
+/** Afegeix .is-in als elements .rv quan entren a la pantalla (un sol cop). */
+export function Reveals() {
+  useEffect(() => {
+    if (reduced()) return;
+    const root = document.documentElement;
+    root.classList.add("rv-ready");
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("is-in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -12% 0px" });
+    document.querySelectorAll(".rv").forEach((el) => io.observe(el));
+    return () => { io.disconnect(); root.classList.remove("rv-ready"); };
+  }, []);
+  return null;
+}
+
+/** Formulari que obre WhatsApp amb el missatge escrit: no guarda cap dada. */
+export function ContactForm({ whatsapp, name, cta }: { whatsapp: string; name: string; cta: string }) {
+  const [err, setErr] = useState<Record<string, string>>({});
+  return (
+    <form className="form" noValidate onSubmit={(e) => {
+      e.preventDefault();
+      const f = new FormData(e.currentTarget);
+      const nom = String(f.get("nom") ?? "").trim(), msg = String(f.get("missatge") ?? "").trim(), dia = String(f.get("dia") ?? "").trim();
+      const er: Record<string, string> = {};
+      if (!nom) er.nom = "Escriu el teu nom.";
+      if (!msg) er.missatge = "Explica'ns què necessites.";
+      setErr(er);
+      if (Object.keys(er).length) return;
+      const text = `Hola ${name}, sóc ${nom}.${dia ? ` M'aniria bé: ${dia}.` : ""} ${msg}`;
+      window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+    }}>
+      <label className="field"><span>Nom</span><input name="nom" autoComplete="name" aria-invalid={!!err.nom} />{err.nom ? <em>{err.nom}</em> : null}</label>
+      <label className="field"><span>Quin dia i hora et va bé? <small>(opcional)</small></span><input name="dia" placeholder="Dijous a la tarda" /></label>
+      <label className="field field--full"><span>Missatge</span><textarea name="missatge" rows={4} aria-invalid={!!err.missatge} />{err.missatge ? <em>{err.missatge}</em> : null}</label>
+      <div className="field--full form__foot">
+        <button className="btn" type="submit">{cta} per WhatsApp</button>
+        <p className="muted">S&apos;obrirà WhatsApp amb el missatge escrit. Aquesta web no guarda les teves dades.</p>
+      </div>
+    </form>
   );
 }
 
