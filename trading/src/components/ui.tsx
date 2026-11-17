@@ -55,7 +55,7 @@ export function Logo() {
           <path d="M15 8h5v5" />
         </svg>
       </span>
-      Parquet
+      TradeLab
     </span>
   );
 }

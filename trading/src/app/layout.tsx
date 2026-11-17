@@ -5,7 +5,8 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Parquet · Simulador de borsa",
+  title: "TradeLab · Simulador de borsa",
+  appleWebApp: { capable: true, title: "TradeLab", statusBarStyle: "default" },
   description: "Aprèn a invertir amb 10.000 € ficticis i preus reals de borsa i cripto.",
 };
 
