@@ -51,6 +51,7 @@ export function CandleChart({
   intraday,
   onReady,
   viewKey,
+  live,
 }: {
   candles: Candle[];
   active: Set<IndicatorKey>;
@@ -58,9 +59,11 @@ export function CandleChart({
   intraday: boolean;
   onReady?: (api: ChartApi | null) => void;
   viewKey?: string; // si no canvia (mateix actiu i temporalitat), conservem el zoom en refrescar les dades
+  live?: Candle | null; // última espelma actualitzada en directe (sense redibuixar tot el gràfic)
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const saved = useRef<{ key?: string; range: { from: number; to: number } | null }>({ range: null });
+  const mainRef = useRef<{ s: ISeriesApi<SeriesType>; candle: boolean; last: number } | null>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -161,7 +164,9 @@ export function CandleChart({
     const ro = new ResizeObserver(() => chart.applyOptions({ width: el.clientWidth }));
     ro.observe(el);
     onReady?.({ chart, series: main, container: el });
+    mainRef.current = { s: main, candle: mode === "espelmes", last: candles[candles.length - 1].t };
     return () => {
+      mainRef.current = null;
       const r = chart.timeScale().getVisibleLogicalRange();
       saved.current = { key: viewKey, range: r ? { from: r.from, to: r.to } : null };
       onReady?.(null);
@@ -169,6 +174,16 @@ export function CandleChart({
       chart.remove();
     };
   }, [candles, active, mode, intraday, onReady, viewKey]);
+
+  // Moviment en directe: només actualitzem l'última espelma
+  useEffect(() => {
+    const m = mainRef.current;
+    if (!m || !live || live.t < m.last) return;
+    try {
+      if (m.candle) m.s.update({ time: local(live.t), open: live.o, high: live.h, low: live.l, close: live.c });
+      else m.s.update({ time: local(live.t), value: live.c });
+    } catch {}
+  }, [live]);
 
   return <div ref={ref} className="w-full" />;
 }

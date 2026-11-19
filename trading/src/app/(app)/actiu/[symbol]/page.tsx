@@ -173,6 +173,48 @@ function ActiuView({ symbol }: { symbol: string }) {
     };
   }, [api, myOps, rate]);
 
+  // ---- En directe: cada 2 segons demanem l'últim preu i movem l'última espelma ----
+  const [live, setLive] = useState<Candle | null>(null);
+  const [livePrice, setLivePrice] = useState<number | null>(null); // €
+  const baseRef = useRef<Candle[] | null>(null);
+  useEffect(() => {
+    baseRef.current = dispCandles;
+    setLive(null);
+  }, [dispCandles]);
+  const tfSec = ({ "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400 } as Record<string, number>)[tf ?? ""] ?? 0;
+  useEffect(() => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      if (document.visibilityState === "visible") {
+        try {
+          const j = await (await fetch(`/api/tick?symbol=${encodeURIComponent(symbol)}`, { cache: "no-store" })).json();
+          if (alive && j.price > 0 && j.open) {
+            setLivePrice(j.price);
+            const p = j.price * rate;
+            const now = Math.floor(Date.now() / 1000);
+            setLive((prev) => {
+              const all = baseRef.current;
+              const base = prev ?? all?.[all.length - 1];
+              if (!base) return prev;
+              if (tfSec && now >= base.t + tfSec) {
+                const t = base.t + tfSec * Math.floor((now - base.t) / tfSec);
+                return { t, o: base.c, h: Math.max(base.c, p), l: Math.min(base.c, p), c: p, v: 0 };
+              }
+              return { ...base, h: Math.max(base.h, p), l: Math.min(base.l, p), c: p };
+            });
+          }
+        } catch {}
+      }
+      if (alive) timer = setTimeout(tick, 2000);
+    };
+    tick();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [symbol, rate, tfSec]);
+
   const activeSet = useMemo(() => new Set(prefs?.ind ?? []), [prefs?.ind]);
 
   if (!asset) {
@@ -241,7 +283,7 @@ function ActiuView({ symbol }: { symbol: string }) {
 
       <Card className="flex flex-col gap-3 px-3">
         <div className="px-1">
-          <div className="text-[32px] font-bold leading-tight tracking-tight">{q ? price(q.price) : "–"}</div>
+          <div className="text-[32px] font-bold leading-tight tracking-tight">{livePrice ?? q?.price ? price((livePrice ?? q?.price)!) : "–"}</div>
           <div className={`text-[15px] font-semibold ${tone(q?.changePct)}`}>
             {pct(q?.changePct)} <span className="font-normal text-muted">{q && !q.open && asset.type !== "cripto" ? "a l'últim tancament" : "avui"}</span>
           </div>
@@ -306,7 +348,7 @@ function ActiuView({ symbol }: { symbol: string }) {
             setSelected(null);
           }}
         />
-        <QuickTrade symbol={symbol} name={asset.name} plan={plan} />
+        <QuickTrade symbol={symbol} name={asset.name} plan={plan} livePrice={livePrice} />
         <div className="relative -mx-1">
           {candles && prefs ? (
             candles.length > 1 ? (
@@ -318,6 +360,7 @@ function ActiuView({ symbol }: { symbol: string }) {
                   intraday={!["1d", "1wk"].includes(prefs.tf)}
                   onReady={onReady}
                   viewKey={`${symbol}|${prefs.tf}`}
+                  live={live}
                 />
                 {activeSet.has("sr") && <SrLayer api={api} candles={dispCandles!} />}
                 <DrawingLayer
@@ -371,8 +414,8 @@ function ActiuView({ symbol }: { symbol: string }) {
           </ul>
         )}
         <p className="flex items-center gap-2 px-1 text-xs text-muted">
-          <span className={`inline-block h-2 w-2 rounded-full ${q?.open ? "bg-up" : "bg-muted"}`} />
-          {q?.open ? "Mercat obert" : "Mercat tancat"} · {HOURS_LABEL[asset.type]}
+          <span className={`inline-block h-2 w-2 rounded-full ${q?.open ? "animate-pulse bg-up" : "bg-muted"}`} />
+          {q?.open ? (livePrice ? "En directe (s'actualitza cada 2 s)" : "Mercat obert") : "Mercat tancat"} · {HOURS_LABEL[asset.type]}
         </p>
       </Card>
 

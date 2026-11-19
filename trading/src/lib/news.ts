@@ -44,7 +44,7 @@ export async function getNews(symbol?: string): Promise<NewsItem[] | null> {
   }
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:7d`)}&hl=es&gl=ES&ceid=ES:es`;
   try {
-    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 600 } });
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 60 } });
     if (!res.ok) return null;
     const xml = await res.text();
     const items = xml.split("<item>").slice(1).map((it) => {

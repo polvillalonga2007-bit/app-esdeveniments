@@ -18,6 +18,7 @@ export const ASSETS: Asset[] = [
   { symbol: "AAPL", name: "Apple", type: "eua", currency: "USD" },
   { symbol: "MSFT", name: "Microsoft", type: "eua", currency: "USD" },
   { symbol: "NVDA", name: "Nvidia", type: "eua", currency: "USD" },
+  { symbol: "ANT", name: "Anthropic", type: "eua", currency: "USD" }, // cotitza al Nasdaq des del 19-11-2026
   { symbol: "TSLA", name: "Tesla", type: "eua", currency: "USD" },
   { symbol: "AMZN", name: "Amazon", type: "eua", currency: "USD" },
   { symbol: "GOOGL", name: "Google (Alphabet)", type: "eua", currency: "USD" },

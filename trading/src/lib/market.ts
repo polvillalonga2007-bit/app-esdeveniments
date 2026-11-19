@@ -221,3 +221,25 @@ export async function getCandles(symbol: string, tf: string): Promise<Candle[] |
   if (cfg.group) out = group(out, cfg.group);
   return out;
 }
+
+// Preu per al gràfic en directe (cada pocs segons).
+// Cripto: Binance (temps real, sense clau); si falla, Yahoo. Borsa: Yahoo amb memòria cau de 2 segons.
+const BINANCE: Record<string, string> = {
+  "BTC-EUR": "BTCEUR", "ETH-EUR": "ETHEUR", "SOL-EUR": "SOLEUR", "XRP-EUR": "XRPEUR", "DOGE-EUR": "DOGEEUR", "ADA-EUR": "ADAEUR",
+};
+export async function getTick(symbol: string): Promise<{ price: number; open: boolean; t: number } | null> {
+  const asset = findAsset(symbol);
+  if (!asset) return null;
+  const b = BINANCE[symbol];
+  if (b) {
+    try {
+      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${b}`, { cache: "no-store" });
+      const j = await res.json();
+      const p = Number(j?.price);
+      if (p > 0) return { price: p, open: true, t: Date.now() };
+    } catch {}
+  }
+  const fx = asset.currency === "USD" ? await eurUsd() : 1;
+  const q = await quoteFor(asset, fx, 2);
+  return q ? { price: q.price, open: q.open, t: Date.now() } : null;
+}

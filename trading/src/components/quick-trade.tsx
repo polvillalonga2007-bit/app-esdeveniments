@@ -13,7 +13,7 @@ const VOL_KEY = "parquet:volum";
 const small = "h-10 w-full rounded-lg border border-line bg-white px-2.5 text-[15px] outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
 
 // Panell de compra i venda amb un sol clic, enganxat al gràfic
-export function QuickTrade({ symbol, name, plan }: { symbol: string; name: string; plan: Plan | null }) {
+export function QuickTrade({ symbol, name, plan, livePrice }: { symbol: string; name: string; plan: Plan | null; livePrice?: number | null }) {
   const { state, setState, quote, notify } = useApp();
   const q = quote(symbol);
   const [amount, setAmount] = useState("100");
@@ -56,7 +56,7 @@ export function QuickTrade({ symbol, name, plan }: { symbol: string; name: strin
   }
 
   const closed = q != null && !q.open;
-  const px = q ? price(q.price) : "–";
+  const px = livePrice ? price(livePrice) : q ? price(q.price) : "–";
 
   return (
     <div className="flex flex-col gap-2">
